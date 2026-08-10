@@ -1,0 +1,40 @@
+{
+    "name": "serveravatar/watchtower-agent",
+    "description": "Official ServerAvatar Watchtower Agent for Laravel applications",
+    "type": "library",
+    "license": "MIT",
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "ServerAvatar",
+            "email": "support@serveravatar.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^10.0|^11.0",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ServerAvatar\\Watchtower\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ServerAvatar\\Watchtower\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ServerAvatar\\Watchtower\\WatchtowerAgentServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
