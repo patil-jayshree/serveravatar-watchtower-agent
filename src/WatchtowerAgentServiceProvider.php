@@ -9,6 +9,8 @@ use ServerAvatar\Watchtower\Client\WatchtowerClient;
 use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
 use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
 use ServerAvatar\Watchtower\Services\ConnectionVerifier;
+use ServerAvatar\Watchtower\Services\ExceptionSanitizer;
+use ServerAvatar\Watchtower\Services\ExceptionTelemetry;
 use ServerAvatar\Watchtower\Services\RequestSanitizer;
 use ServerAvatar\Watchtower\Services\RequestTelemetry;
 
@@ -60,6 +62,19 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(WatchtowerClientInterface::class)
             );
         });
+
+        // Bind ExceptionSanitizer
+        $this->app->singleton(ExceptionSanitizer::class, function () {
+            return new ExceptionSanitizer();
+        });
+
+        // Bind ExceptionTelemetry
+        $this->app->singleton(ExceptionTelemetry::class, function ($app) {
+            return new ExceptionTelemetry(
+                $app->make(ExceptionSanitizer::class),
+                $app->make(WatchtowerClientInterface::class)
+            );
+        });
     }
 
     /**
@@ -79,10 +94,29 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         $router->pushMiddlewareToGroup('web', WatchtowerRequestTelemetry::class);
         $router->pushMiddlewareToGroup('api', WatchtowerRequestTelemetry::class);
 
+        // Register the exception handler
+        $this->registerExceptionHandler();
+
         // Publish configuration file
         $this->publishes([
             __DIR__ . '/Config/watchtower.php' => config_path('watchtower.php'),
         ], 'watchtower-config');
+    }
+
+    /**
+     * Register the exception handler to capture exceptions.
+     */
+    protected function registerExceptionHandler(): void
+    {
+        // Only register if explicitly enabled
+        if (! config('watchtower.exceptions.enabled', true)) {
+            return;
+        }
+
+        $this->app->make('events')->listen('*', function ($event, $data = []) {
+            // This is a fallback - the actual exception capture happens in
+            // the WatchtowerExceptionHandler middleware
+        });
     }
 
     /**

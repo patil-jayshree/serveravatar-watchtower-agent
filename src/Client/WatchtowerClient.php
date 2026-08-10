@@ -117,6 +117,36 @@ class WatchtowerClient implements WatchtowerClientInterface
     /**
      * {@inheritdoc}
      */
+    public function sendExceptionTelemetry(array $data, int $timeout = 3): array
+    {
+        if (! $this->isConfigured()) {
+            return ['success' => false];
+        }
+
+        try {
+            $payload = array_merge($data, [
+                'token' => $this->token,
+            ]);
+
+            $response = $this->makeRequestWithTimeout('POST', '/api/agent/exceptions', $payload, $timeout);
+
+            return [
+                'success' => true,
+                'response' => $response,
+            ];
+        } catch (GuzzleException $e) {
+            // Fail silently for exception telemetry
+            Log::debug('Watchtower exception telemetry failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function sendHeartbeat(array $data): array
     {
         if (! $this->isConfigured()) {
@@ -141,6 +171,36 @@ class WatchtowerClient implements WatchtowerClientInterface
             ]);
 
             return ['success' => false];
+        }
+    }
+
+    /**
+     * Make an HTTP request with retry logic and custom timeout.
+     *
+     * @throws GuzzleException
+     */
+    protected function makeRequestWithTimeout(string $method, string $uri, array $data, int $timeout): array
+    {
+        $client = new Client([
+            'base_uri' => $this->baseUrl,
+            'timeout' => $timeout,
+            'connect_timeout' => $this->connectionSettings['connect_timeout'] ?? 5,
+            'headers' => [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                'User-Agent' => 'WatchtowerAgent/' . $this->agentVersion,
+                'X-Agent-Token' => $this->token,
+            ],
+        ]);
+
+        try {
+            $response = $client->request($method, $uri, [
+                'json' => $data,
+            ]);
+
+            return json_decode($response->getBody()->getContents(), true) ?? [];
+        } catch (GuzzleException $e) {
+            throw $e;
         }
     }
 

@@ -81,6 +81,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Exception Telemetry
+    |--------------------------------------------------------------------------
+    |
+    | Configure exception monitoring behavior.
+    |
+    */
+    'exceptions' => [
+        // Enable or disable exception telemetry
+        'enabled' => (bool) env('WATCHTOWER_EXCEPTIONS_ENABLED', true),
+
+        // Timeout for exception telemetry requests (seconds)
+        'timeout' => (int) env('WATCHTOWER_EXCEPTIONS_TIMEOUT', 3),
+
+        // Capture HTTP 4xx/5xx errors as exceptions
+        'capture_http_errors' => (bool) env('WATCHTOWER_CAPTURE_HTTP_ERRORS', false),
+
+        // Skip exceptions from these paths
+        'skip_patterns' => [
+            'telescope/*',
+            'horizon/*',
+            'api/agent/*',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment
     |--------------------------------------------------------------------------
     |
