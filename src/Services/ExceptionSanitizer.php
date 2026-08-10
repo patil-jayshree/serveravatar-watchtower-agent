@@ -11,45 +11,45 @@ class ExceptionSanitizer
      */
     protected array $sensitivePatterns = [
         // Passwords
-        '/password["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']/i' => '[PASSWORD REDACTED]',
-        '/"password"\s*:\s*"[^"]{1,100}"/i' => '"password": "[PASSWORD]"',
+        '#password["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[PASSWORD REDACTED]',
+        '#"password"\s*:\s*"[^"]{1,100}"#i' => '"password": "[PASSWORD]"',
 
         // Secrets
-        '/secret["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']/i' => '[SECRET REDACTED]',
+        '#secret["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[SECRET REDACTED]',
 
         // API keys
-        '/api[_-]?key["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']/i' => '[API_KEY REDACTED]',
-        '/api[_-]?secret["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']/i' => '[API_SECRET REDACTED]',
+        '#api[_-]?key["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[API_KEY REDACTED]',
+        '#api[_-]?secret["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[API_SECRET REDACTED]',
 
         // Authorization headers
-        '/authorization["\']?\s*[:=]\s*["\'][^"\']{1,200}["\']/i' => '[AUTHORIZATION REDACTED]',
-        '/bearer\s+[a-zA-Z0-9\-_.~+/]{10,}/i' => 'Bearer [TOKEN REDACTED]',
+        '#authorization["\']?\s*[:=]\s*["\'][^"\']{1,200}["\']#i' => '[AUTHORIZATION REDACTED]',
+        '#bearer\s+[a-zA-Z0-9\-_.~+/]{10,}#i' => 'Bearer [TOKEN REDACTED]',
 
         // Database credentials in DSN strings
-        '/mysql:\/\/[^:]+:[^@]+@/i' => 'mysql://[USER]:[PASS]@',
+        '#mysql://[^:]+:[^@]+@#i' => 'mysql://[USER]:[PASS]@',
 
         // AWS keys
-        '/AKIA[0-9A-Z]{16}/' => '[AWS_ACCESS_KEY_ID]',
-        '/[a-zA-Z0-9/+=]{40}(?=.*aws)/i' => '[AWS_SECRET_KEY]',
+        '#AKIA[0-9A-Z]{16}#' => '[AWS_ACCESS_KEY_ID]',
+        '#[a-zA-Z0-9/+=]{40}(?=.*aws)#i' => '[AWS_SECRET_KEY]',
 
         // Environment variables with sensitive names
-        '/ENV\[[\'"](?:DB_PASSWORD|DB_USERNAME|APP_KEY|SECRET|TOKEN|PASSWORD|API_KEY)[\'"]/i' => 'ENV[[SECRET]',
+        '#ENV\[\["\'](?:DB_PASSWORD|DB_USERNAME|APP_KEY|SECRET|TOKEN|PASSWORD|API_KEY)["\'\s]#i' => 'ENV[[SECRET]',
 
         // Cookie values
-        '/cookie["\']?\s*[:=]\s*["\'][^"\']{1,200}["\']/i' => '[COOKIE REDACTED]',
+        '#cookie["\']?\s*[:=]\s*["\'][^"\']{1,200}["\']#i' => '[COOKIE REDACTED]',
 
         // Token in URL query
-        '/[?&](?:token|api_key|key)=[a-zA-Z0-9\-_.~+/]{10,}/i' => '[QUERY_TOKEN REDACTED]',
+        '#[?&](?:token|api_key|key)=[a-zA-Z0-9\-_.~+/]{10,}#i' => '[QUERY_TOKEN REDACTED]',
     ];
 
     /**
      * Sensitive route patterns that might appear in stack traces.
      */
     protected array $sensitiveRoutePatterns = [
-        '/\/api\/.*\/token/i',
-        '/\/auth\/.*\/callback/i',
-        '/\/oauth\//i',
-        '/\/webhook\//i',
+        '#/api/.*/token#i',
+        '#/auth/.*/callback#i',
+        '#/oauth/#i',
+        '#/webhook/#i',
     ];
 
     /**
@@ -102,7 +102,7 @@ class ExceptionSanitizer
 
         // Then sanitize file paths in the trace
         $sanitized = preg_replace_callback(
-            '/#\d+\s+[a-zA-Z\\_]+::[a-zA-Z\\_]+\([^\)]+\)\s+at\s+(.+):(\d+)/i',
+            '#\d+\s+[a-zA-Z\\_]+::[a-zA-Z\\_]+\([^\)]+\)\s+at\s+(.+):(\d+)#i',
             function ($matches) {
                 return '#X ' . $matches[1] . '(' . $this->sanitizeFilePath($matches[2]) . ':' . $matches[3] . ')';
             },

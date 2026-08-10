@@ -56,9 +56,18 @@ class WatchtowerRequestTelemetry
             }
         }
 
-        // Skip the Watchtower API endpoint itself
+        // Skip the Watchtower API endpoint itself (prevent recursion)
         if ($request->is('api/agent/*')) {
             return true;
+        }
+
+        // Skip if this request is going to Watchtower (prevent recursion when sending telemetry)
+        $watchtowerUrl = config('watchtower.url');
+        if ($watchtowerUrl) {
+            $watchtowerHost = parse_url($watchtowerUrl, PHP_URL_HOST);
+            if ($watchtowerHost && $request->getHost() === $watchtowerHost) {
+                return true;
+            }
         }
 
         return false;
