@@ -78,7 +78,6 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         $router = $this->app->make('router');
         $router->pushMiddlewareToGroup('web', WatchtowerRequestTelemetry::class);
         $router->pushMiddlewareToGroup('api', WatchtowerRequestTelemetry::class);
-    }
 
         // Publish configuration file
         $this->publishes([

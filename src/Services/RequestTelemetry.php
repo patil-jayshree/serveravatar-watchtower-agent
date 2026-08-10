@@ -4,6 +4,7 @@ namespace ServerAvatar\Watchtower\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 class RequestTelemetry
@@ -13,7 +14,7 @@ class RequestTelemetry
 
     public function __construct(
         protected RequestSanitizer $sanitizer,
-        protected WatchtowerClient $client,
+        protected WatchtowerClientInterface $client,
     ) {}
 
     /**
@@ -59,7 +60,7 @@ class RequestTelemetry
             userAgent: $request->userAgent(),
             ip: $request->ip(),
             environment: config('watchtower.environment', 'production'),
-            contentType: $request->getContentType(),
+            contentType: $request->header('Content-Type', 'application/octet-stream'),
             requestedAt: now()->toIso8601String(),
         );
 
