@@ -87,6 +87,36 @@ class WatchtowerClient implements WatchtowerClientInterface
     /**
      * {@inheritdoc}
      */
+    public function sendRequestTelemetry(array $data): array
+    {
+        if (! $this->isConfigured()) {
+            return ['success' => false];
+        }
+
+        try {
+            $payload = array_merge($data, [
+                'token' => $this->token,
+            ]);
+
+            $response = $this->makeRequest('POST', '/api/agent/requests', $payload);
+
+            return [
+                'success' => true,
+                'response' => $response,
+            ];
+        } catch (GuzzleException $e) {
+            // Fail silently for telemetry
+            Log::debug('Watchtower request telemetry failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function sendHeartbeat(array $data): array
     {
         if (! $this->isConfigured()) {

@@ -20,7 +20,9 @@
     },
     "autoload": {
         "psr-4": {
-            "ServerAvatar\\Watchtower\\": "src/"
+            "ServerAvatar\\Watchtower\\": "src/",
+            "ServerAvatar\\Watchtower\\Data\\": "src/Data/",
+            "ServerAvatar\\Watchtower\\Middleware\\": "src/Middleware/"
         }
     },
     "autoload-dev": {

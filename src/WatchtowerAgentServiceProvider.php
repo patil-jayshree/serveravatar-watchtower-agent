@@ -7,7 +7,10 @@ namespace ServerAvatar\Watchtower;
 use Illuminate\Support\ServiceProvider;
 use ServerAvatar\Watchtower\Client\WatchtowerClient;
 use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
+use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
 use ServerAvatar\Watchtower\Services\ConnectionVerifier;
+use ServerAvatar\Watchtower\Services\RequestSanitizer;
+use ServerAvatar\Watchtower\Services\RequestTelemetry;
 
 class WatchtowerAgentServiceProvider extends ServiceProvider
 {
@@ -44,6 +47,19 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(WatchtowerClientInterface::class)
             );
         });
+
+        // Bind RequestSanitizer
+        $this->app->singleton(RequestSanitizer::class, function () {
+            return new RequestSanitizer();
+        });
+
+        // Bind RequestTelemetry
+        $this->app->singleton(RequestTelemetry::class, function ($app) {
+            return new RequestTelemetry(
+                $app->make(RequestSanitizer::class),
+                $app->make(WatchtowerClientInterface::class)
+            );
+        });
     }
 
     /**
@@ -57,6 +73,12 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 \ServerAvatar\Watchtower\Commands\WatchtowerStatusCommand::class,
             ]);
         }
+
+        // Register the request telemetry middleware
+        $router = $this->app->make('router');
+        $router->pushMiddlewareToGroup('web', WatchtowerRequestTelemetry::class);
+        $router->pushMiddlewareToGroup('api', WatchtowerRequestTelemetry::class);
+    }
 
         // Publish configuration file
         $this->publishes([

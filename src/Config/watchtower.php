@@ -58,4 +58,44 @@ return [
     |
     */
     'enabled' => (bool) env('WATCHTOWER_AGENT_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Request Telemetry
+    |--------------------------------------------------------------------------
+    |
+    | Configure request monitoring behavior.
+    |
+    */
+    'request_telemetry' => [
+        // Enable or disable request telemetry
+        'enabled' => (bool) env('WATCHTOWER_TELEMETRY_ENABLED', true),
+
+        // Skip telemetry for these paths (Ant-style patterns)
+        'skip_patterns' => [
+            'telescope/*',
+            'horizon/*',
+            'api/agent/*',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Environment
+    |--------------------------------------------------------------------------
+    |
+    | The application environment being monitored.
+    |
+    */
+    'environment' => env('WATCHTOWER_ENVIRONMENT', 'production'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug Mode
+    |--------------------------------------------------------------------------
+    |
+    | Enable debug mode to log telemetry failures. Do not enable in production.
+    |
+    */
+    'debug' => (bool) env('WATCHTOWER_DEBUG', false),
 ];
