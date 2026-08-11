@@ -71,6 +71,10 @@ return [
         // Enable or disable request telemetry
         'enabled' => (bool) env('WATCHTOWER_TELEMETRY_ENABLED', true),
 
+        // Slow request threshold in milliseconds
+        // Requests at or above this threshold are flagged as slow in Performance dashboard
+        'slow_request_threshold' => (int) env('WATCHTOWER_SLOW_REQUEST_THRESHOLD', 1000),
+
         // Skip telemetry for these paths (Ant-style patterns)
         'skip_patterns' => [
             'telescope/*',
