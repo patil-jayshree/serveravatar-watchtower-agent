@@ -8,6 +8,8 @@ use Illuminate\Support\ServiceProvider;
 use ServerAvatar\Watchtower\Client\WatchtowerClient;
 use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
 use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
+use ServerAvatar\Watchtower\Services\CommandSanitizer;
+use ServerAvatar\Watchtower\Services\CommandTelemetry;
 use ServerAvatar\Watchtower\Services\ConnectionVerifier;
 use ServerAvatar\Watchtower\Services\ExceptionSanitizer;
 use ServerAvatar\Watchtower\Services\ExceptionTelemetry;
@@ -124,6 +126,19 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(LogSanitizer::class)
             );
         });
+
+        // Bind CommandSanitizer
+        $this->app->singleton(CommandSanitizer::class, function () {
+            return new CommandSanitizer();
+        });
+
+        // Bind CommandTelemetry
+        $this->app->singleton(CommandTelemetry::class, function ($app) {
+            return new CommandTelemetry(
+                $app->make(CommandSanitizer::class),
+                $app->make(WatchtowerClientInterface::class)
+            );
+        });
     }
 
     /**
@@ -154,6 +169,9 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
 
         // Enable log monitoring if configured
         $this->registerLogMonitoring();
+
+        // Enable command monitoring if configured
+        $this->registerCommandMonitoring();
 
         // Publish configuration file
         $this->publishes([
@@ -229,6 +247,20 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         // Add to the default log channel
         $logger = $this->app->make('log');
         $logger->getLogger()->pushHandler($handler);
+    }
+
+    /**
+     * Register command monitoring.
+     */
+    protected function registerCommandMonitoring(): void
+    {
+        if (! config('watchtower.enabled', true) || ! config('watchtower.command_monitoring.enabled', false)) {
+            return;
+        }
+
+        // Resolve CommandTelemetry and enable it
+        $commandTelemetry = $this->app->make(\ServerAvatar\Watchtower\Services\CommandTelemetry::class);
+        $commandTelemetry->enable();
     }
 
     /**

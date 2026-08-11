@@ -195,6 +195,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Command Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | Configure Artisan command monitoring behavior.
+    |
+    */
+    'command_monitoring' => [
+        // Enable or disable command monitoring
+        'enabled' => (bool) env('WATCHTOWER_COMMAND_MONITORING', false),
+
+        // Slow command threshold in milliseconds
+        // Commands at or above this threshold are flagged as slow
+        'slow_threshold_ms' => (int) env('WATCHTOWER_SLOW_COMMAND_THRESHOLD', 1000),
+
+        // Timeout for command telemetry requests (seconds)
+        'timeout' => (int) env('WATCHTOWER_COMMAND_TIMEOUT', 3),
+
+        // Commands to ignore (Ant-style patterns or exact name)
+        'ignored_commands' => [
+            // Example: 'inspire',
+        ],
+
+        // Sensitive option names that should be redacted
+        'sensitive_options' => [
+            // Additional to defaults: password, token, secret, api-key, etc.
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment
     |--------------------------------------------------------------------------
     |
