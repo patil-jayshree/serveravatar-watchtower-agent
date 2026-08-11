@@ -109,6 +109,14 @@ class RequestTelemetry
     }
 
     /**
+     * Get the current request ID.
+     */
+    public function getRequestId(): ?string
+    {
+        return $this->requestId;
+    }
+
+    /**
      * Send telemetry with graceful failure.
      */
     protected function sendTelemetry(array $data): void

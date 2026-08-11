@@ -107,6 +107,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Query Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | Configure database query monitoring behavior.
+    |
+    */
+    'query_monitoring' => [
+        // Enable or disable query monitoring
+        'enabled' => (bool) env('WATCHTOWER_QUERY_MONITORING', false),
+
+        // Slow query threshold in milliseconds
+        // Queries at or above this threshold are marked as slow
+        'slow_query_threshold' => (int) env('WATCHTOWER_SLOW_QUERY_THRESHOLD', 500),
+
+        // Timeout for query telemetry requests (seconds)
+        'timeout' => (int) env('WATCHTOWER_QUERY_TIMEOUT', 3),
+
+        // Connections to ignore (empty = monitor all)
+        'ignored_connections' => explode(',', env('WATCHTOWER_QUERY_IGNORED_CONNECTIONS', '')),
+
+        // Minimum duration to capture (ms) - helps reduce noise
+        'min_duration' => (int) env('WATCHTOWER_QUERY_MIN_DURATION', 0),
+
+        // Skip queries matching these patterns
+        'skip_patterns' => [
+            // Example: '#SELECT\s+1#i',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment
     |--------------------------------------------------------------------------
     |

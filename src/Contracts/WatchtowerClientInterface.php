@@ -39,6 +39,15 @@ interface WatchtowerClientInterface
     public function sendExceptionTelemetry(array $data, int $timeout = 3): array;
 
     /**
+     * Send query telemetry to Watchtower.
+     *
+     * @param array<string, mixed> $data
+     * @param int $timeout
+     * @return array{success: bool}
+     */
+    public function sendQueryTelemetry(array $data, int $timeout = 3): array;
+
+    /**
      * Check if the agent is configured properly.
      */
     public function isConfigured(): bool;

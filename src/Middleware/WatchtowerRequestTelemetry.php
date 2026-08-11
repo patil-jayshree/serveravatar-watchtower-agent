@@ -10,6 +10,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class WatchtowerRequestTelemetry
 {
+    /**
+     * Optional callback to be notified when request ID is set.
+     *
+     * @var callable|null
+     */
+    protected $requestIdCallback = null;
+
     public function __construct(
         protected RequestTelemetry $telemetry
     ) {}
@@ -34,6 +41,11 @@ class WatchtowerRequestTelemetry
         // Start tracking
         $this->telemetry->start($request);
 
+        // Notify callback of request ID (for query telemetry)
+        if ($this->requestIdCallback) {
+            ($this->requestIdCallback)($this->telemetry->getRequestId());
+        }
+
         // Get the response
         $response = $next($request);
 
@@ -41,6 +53,16 @@ class WatchtowerRequestTelemetry
         $this->telemetry->end($request, $response);
 
         return $response;
+    }
+
+    /**
+     * Set a callback to be notified when request ID is set.
+     *
+     * @param  callable(?string)  $callback
+     */
+    public function setRequestIdCallback(callable $callback): void
+    {
+        $this->requestIdCallback = $callback;
     }
 
     /**

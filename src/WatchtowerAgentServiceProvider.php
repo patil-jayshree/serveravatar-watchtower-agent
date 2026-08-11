@@ -11,6 +11,8 @@ use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
 use ServerAvatar\Watchtower\Services\ConnectionVerifier;
 use ServerAvatar\Watchtower\Services\ExceptionSanitizer;
 use ServerAvatar\Watchtower\Services\ExceptionTelemetry;
+use ServerAvatar\Watchtower\Services\QuerySanitizer;
+use ServerAvatar\Watchtower\Services\QueryTelemetry;
 use ServerAvatar\Watchtower\Services\RequestSanitizer;
 use ServerAvatar\Watchtower\Services\RequestTelemetry;
 
@@ -75,6 +77,19 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(WatchtowerClientInterface::class)
             );
         });
+
+        // Bind QuerySanitizer
+        $this->app->singleton(QuerySanitizer::class, function () {
+            return new QuerySanitizer();
+        });
+
+        // Bind QueryTelemetry
+        $this->app->singleton(QueryTelemetry::class, function ($app) {
+            return new QueryTelemetry(
+                $app->make(QuerySanitizer::class),
+                $app->make(WatchtowerClientInterface::class)
+            );
+        });
     }
 
     /**
@@ -97,10 +112,37 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         // Register the exception handler
         $this->registerExceptionHandler();
 
+        // Enable query monitoring if configured
+        $this->registerQueryMonitoring();
+
         // Publish configuration file
         $this->publishes([
             __DIR__ . '/Config/watchtower.php' => config_path('watchtower.php'),
         ], 'watchtower-config');
+    }
+
+    /**
+     * Register query monitoring.
+     */
+    protected function registerQueryMonitoring(): void
+    {
+        if (! config('watchtower.enabled', true) || ! config('watchtower.query_monitoring.enabled', false)) {
+            return;
+        }
+
+        // Resolve QueryTelemetry and enable it
+        $queryTelemetry = $this->app->make(\ServerAvatar\Watchtower\Services\QueryTelemetry::class);
+        $queryTelemetry->enable();
+
+        // Also hook into the middleware to propagate request ID
+        $this->app->resolving(\ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry::class, function (
+            \ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry $middleware
+        ) use ($queryTelemetry) {
+            // When the middleware sets request ID, also set it for query telemetry
+            $middleware->setRequestIdCallback(function (?string $requestId) use ($queryTelemetry) {
+                $queryTelemetry->setCurrentRequestId($requestId);
+            });
+        });
     }
 
     /**
