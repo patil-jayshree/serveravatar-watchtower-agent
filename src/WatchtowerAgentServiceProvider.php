@@ -11,6 +11,8 @@ use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
 use ServerAvatar\Watchtower\Services\ConnectionVerifier;
 use ServerAvatar\Watchtower\Services\ExceptionSanitizer;
 use ServerAvatar\Watchtower\Services\ExceptionTelemetry;
+use ServerAvatar\Watchtower\Services\JobSanitizer;
+use ServerAvatar\Watchtower\Services\JobTelemetry;
 use ServerAvatar\Watchtower\Services\QuerySanitizer;
 use ServerAvatar\Watchtower\Services\QueryTelemetry;
 use ServerAvatar\Watchtower\Services\RequestSanitizer;
@@ -90,6 +92,19 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(WatchtowerClientInterface::class)
             );
         });
+
+        // Bind JobSanitizer
+        $this->app->singleton(JobSanitizer::class, function () {
+            return new JobSanitizer();
+        });
+
+        // Bind JobTelemetry
+        $this->app->singleton(JobTelemetry::class, function ($app) {
+            return new JobTelemetry(
+                $app->make(JobSanitizer::class),
+                $app->make(WatchtowerClientInterface::class)
+            );
+        });
     }
 
     /**
@@ -114,6 +129,9 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
 
         // Enable query monitoring if configured
         $this->registerQueryMonitoring();
+
+        // Enable queue monitoring if configured
+        $this->registerQueueMonitoring();
 
         // Publish configuration file
         $this->publishes([
@@ -141,6 +159,30 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
             // When the middleware sets request ID, also set it for query telemetry
             $middleware->setRequestIdCallback(function (?string $requestId) use ($queryTelemetry) {
                 $queryTelemetry->setCurrentRequestId($requestId);
+            });
+        });
+    }
+
+    /**
+     * Register queue monitoring.
+     */
+    protected function registerQueueMonitoring(): void
+    {
+        if (! config('watchtower.enabled', true) || ! config('watchtower.queue_monitoring.enabled', false)) {
+            return;
+        }
+
+        // Resolve JobTelemetry and enable it
+        $jobTelemetry = $this->app->make(\ServerAvatar\Watchtower\Services\JobTelemetry::class);
+        $jobTelemetry->enable();
+
+        // Also hook into the middleware to propagate request/trace ID
+        $this->app->resolving(\ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry::class, function (
+            \ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry $middleware
+        ) use ($jobTelemetry) {
+            // When the middleware sets request ID, also set it for job telemetry
+            $middleware->setRequestIdCallback(function (?string $requestId) use ($jobTelemetry) {
+                $jobTelemetry->setCurrentRequestId($requestId);
             });
         });
     }

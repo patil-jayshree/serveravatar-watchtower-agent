@@ -138,6 +138,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | Configure Laravel queue/job monitoring behavior.
+    |
+    */
+    'queue_monitoring' => [
+        // Enable or disable queue monitoring
+        'enabled' => (bool) env('WATCHTOWER_QUEUE_MONITORING', false),
+
+        // Timeout for job telemetry requests (seconds)
+        'timeout' => (int) env('WATCHTOWER_QUEUE_TIMEOUT', 3),
+
+        // Jobs to ignore (Ant-style patterns)
+        'ignored_jobs' => [
+            // Example: 'App\Jobs\LowPriorityJob',
+        ],
+
+        // Queues to ignore (Ant-style patterns)
+        'ignored_queues' => [
+            // Example: 'low_priority',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment
     |--------------------------------------------------------------------------
     |
