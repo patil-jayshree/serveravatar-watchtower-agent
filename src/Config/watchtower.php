@@ -164,6 +164,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Log Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | Configure Laravel log monitoring behavior.
+    |
+    */
+    'log_monitoring' => [
+        // Enable or disable log monitoring
+        'enabled' => (bool) env('WATCHTOWER_LOG_MONITORING', false),
+
+        // Minimum log level to capture (DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY)
+        'min_level' => strtoupper(env('WATCHTOWER_LOG_MIN_LEVEL', 'DEBUG')),
+
+        // Timeout for log telemetry requests (seconds)
+        'timeout' => (int) env('WATCHTOWER_LOG_TIMEOUT', 3),
+
+        // Channels to ignore (empty = capture all)
+        'ignored_channels' => array_filter(explode(',', env('WATCHTOWER_LOG_IGNORED_CHANNELS', ''))),
+
+        // Sensitive context keys to redact
+        // These keys will have their values replaced with [REDACTED]
+        'sensitive_keys' => array_filter(explode(',', env('WATCHTOWER_LOG_SENSITIVE_KEYS',
+            'password,token,api_key,secret,authorization,cookie,session,apiKey,client_secret'))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment
     |--------------------------------------------------------------------------
     |

@@ -13,6 +13,8 @@ use ServerAvatar\Watchtower\Services\ExceptionSanitizer;
 use ServerAvatar\Watchtower\Services\ExceptionTelemetry;
 use ServerAvatar\Watchtower\Services\JobSanitizer;
 use ServerAvatar\Watchtower\Services\JobTelemetry;
+use ServerAvatar\Watchtower\Services\LogSanitizer;
+use ServerAvatar\Watchtower\Services\LogTelemetry;
 use ServerAvatar\Watchtower\Services\QuerySanitizer;
 use ServerAvatar\Watchtower\Services\QueryTelemetry;
 use ServerAvatar\Watchtower\Services\RequestSanitizer;
@@ -30,6 +32,11 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
             __DIR__ . '/Config/watchtower.php',
             'watchtower'
         );
+
+        // Bind WatchtowerConfig
+        $this->app->singleton(WatchtowerConfig::class, function () {
+            return new WatchtowerConfig(config('watchtower', []));
+        });
 
         // Bind the WatchtowerClient interface to the implementation
         $this->app->singleton(WatchtowerClientInterface::class, function ($app) {
@@ -105,6 +112,18 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(WatchtowerClientInterface::class)
             );
         });
+
+        // Bind LogSanitizer
+        $this->app->singleton(LogSanitizer::class, function () {
+            return new LogSanitizer();
+        });
+
+        // Bind LogTelemetry
+        $this->app->singleton(LogTelemetry::class, function ($app) {
+            return new LogTelemetry(
+                $app->make(LogSanitizer::class)
+            );
+        });
     }
 
     /**
@@ -132,6 +151,9 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
 
         // Enable queue monitoring if configured
         $this->registerQueueMonitoring();
+
+        // Enable log monitoring if configured
+        $this->registerLogMonitoring();
 
         // Publish configuration file
         $this->publishes([
@@ -185,6 +207,28 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $jobTelemetry->setCurrentRequestId($requestId);
             });
         });
+    }
+
+    /**
+     * Register log monitoring.
+     */
+    protected function registerLogMonitoring(): void
+    {
+        if (! config('watchtower.enabled', true) || ! config('watchtower.log_monitoring.enabled', false)) {
+            return;
+        }
+
+        // Resolve LogTelemetry and inject the WatchtowerClient
+        $logTelemetry = $this->app->make(\ServerAvatar\Watchtower\Services\LogTelemetry::class);
+        $client = $this->app->make(WatchtowerClientInterface::class);
+        $logTelemetry->setClient($client);
+
+        // Create and register the Monolog handler
+        $handler = $logTelemetry->createHandler();
+
+        // Add to the default log channel
+        $logger = $this->app->make('log');
+        $logger->getLogger()->pushHandler($handler);
     }
 
     /**
