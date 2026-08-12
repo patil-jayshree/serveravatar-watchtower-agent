@@ -7,6 +7,7 @@ namespace ServerAvatar\Watchtower;
 use Illuminate\Support\ServiceProvider;
 use ServerAvatar\Watchtower\Client\WatchtowerClient;
 use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
+use ServerAvatar\Watchtower\Middleware\WatchtowerExceptionHandler;
 use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
 use ServerAvatar\Watchtower\Services\CommandSanitizer;
 use ServerAvatar\Watchtower\Services\CommandTelemetry;
@@ -167,8 +168,9 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         $router->pushMiddlewareToGroup('web', WatchtowerRequestTelemetry::class);
         $router->pushMiddlewareToGroup('api', WatchtowerRequestTelemetry::class);
 
-        // Register the exception handler
-        $this->registerExceptionHandler();
+        // Register the exception handler middleware (must be after request telemetry to catch exceptions)
+        $router->pushMiddlewareToGroup('web', WatchtowerExceptionHandler::class);
+        $router->pushMiddlewareToGroup('api', WatchtowerExceptionHandler::class);
 
         // Enable query monitoring if configured
         $this->registerQueryMonitoring();
@@ -287,22 +289,6 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         // Resolve SchedulerMonitor and enable it
         $schedulerMonitor = $this->app->make(\ServerAvatar\Watchtower\Services\SchedulerMonitor::class);
         $schedulerMonitor->enable();
-    }
-
-    /**
-     * Register the exception handler to capture exceptions.
-     */
-    protected function registerExceptionHandler(): void
-    {
-        // Only register if explicitly enabled
-        if (! config('watchtower.exceptions.enabled', true)) {
-            return;
-        }
-
-        $this->app->make('events')->listen('*', function ($event, $data = []) {
-            // This is a fallback - the actual exception capture happens in
-            // the WatchtowerExceptionHandler middleware
-        });
     }
 
     /**
