@@ -38,6 +38,10 @@ class WatchtowerExceptionHandler
         try {
             $response = $next($request);
 
+            logger()->debug('WatchtowerExceptionHandler: response received', [
+                'status' => $response->getStatusCode(),
+            ]);
+
             // If response is an error (4xx or 5xx), capture it as an exception
             if ($response->getStatusCode() >= 400 && config('watchtower.exceptions.capture_http_errors', false)) {
                 $this->captureHttpError($request, $response, $requestId);
