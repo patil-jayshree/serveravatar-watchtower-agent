@@ -506,6 +506,28 @@ class SchedulerMonitor
             $output = property_exists($event->task, 'output') ? $event->task->output : null;
             if ($output && $output !== '/dev/null') {
                 $exceptionMessage = trim((string) $output);
+                // Extract exception class from output like "RuntimeException" on its own line
+                if (preg_match('/^\s*([A-Z][a-zA-Z0-9_\\]+Exception)\s*$/m', $output, $matches)) {
+                    $exceptionClass = $matches[1];
+                } elseif (preg_match('/^\s*([A-Z][a-zA-Z0-9_\\]+Exception)\s/m', $output, $matches)) {
+                    // Fallback: exception class followed by other text
+                    $exceptionClass = $matches[1];
+                }
+            }
+        }
+
+        $exceptionFile = null;
+        $exceptionLine = null;
+        $stackTrace = null;
+        if ($exceptionMessage && $exceptionClass) {
+            // Extract file and line from output like "at app/Console/Commands/FailingCommand.php:18"
+            if (preg_match('/at\s+([^:]+):(\d+)/', $exceptionMessage, $matches)) {
+                $exceptionFile = $matches[1];
+                $exceptionLine = (int) $matches[2];
+            }
+            // Capture stack trace portion (after the exception class line)
+            if (preg_match('/\n\s+\d+\s vendor frames\n/', $exceptionMessage)) {
+                $stackTrace = $exceptionMessage;
             }
         }
 
@@ -527,6 +549,9 @@ class SchedulerMonitor
             'environment' => $taskInfo['environment'],
             'exception_class' => $exceptionClass,
             'exception_message' => $exceptionMessage,
+            'exception_file' => $exceptionFile,
+            'exception_line' => $exceptionLine,
+            'stack_trace' => $stackTrace,
             'next_run_at' => $this->calculateNextRunTime($task),
         ];
 
