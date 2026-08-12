@@ -254,20 +254,14 @@ class CommandTelemetry
         // Determine status
         $status = $exitCode === 0 ? 'completed' : 'failed';
 
-        // Extract exception information if command failed with an exception
+        // Note: CommandFinished event does not expose the exception object.
+        // For command exceptions, they will be captured via the HTTP exception
+        // handler when commands make HTTP requests, or via the global exception handler.
         $exceptionClass = null;
         $exceptionMessage = null;
         $exceptionFile = null;
         $exceptionLine = null;
         $stackTrace = null;
-
-        if ($exception instanceof \Throwable) {
-            $exceptionClass = get_class($exception);
-            $exceptionMessage = $exception->getMessage();
-            $exceptionFile = $exception->getFile();
-            $exceptionLine = $exception->getLine();
-            $stackTrace = $exception->getTraceAsString();
-        }
 
         $data = new CommandData(
             commandUuid: $commandUuid,
