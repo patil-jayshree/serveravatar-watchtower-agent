@@ -514,11 +514,11 @@ class SchedulerMonitor
             $output = property_exists($event->task, 'output') ? $event->task->output : null;
             if ($output && $output !== '/dev/null') {
                 $exceptionMessage = trim((string) $output);
-                // Extract exception class from output like "RuntimeException" on its own line
-                if (preg_match('/^\s*([A-Z][a-zA-Z0-9_\\]+Exception)\s*$/m', $output, $matches)) {
+                // Extract exception class from output - look for a line with "Exception" as a standalone word
+                if (preg_match('/^\s*(\w+Exception)\s*$/m', $output, $matches)) {
                     $exceptionClass = $matches[1];
-                } elseif (preg_match('/^\s*([A-Z][a-zA-Z0-9_\\]+Exception)\s/m', $output, $matches)) {
-                    // Fallback: exception class followed by other text
+                } elseif (preg_match('/(\w+Exception)/', $output, $matches)) {
+                    // Fallback: exception class found anywhere in output
                     $exceptionClass = $matches[1];
                 }
             }
