@@ -90,7 +90,7 @@ class ExceptionTelemetry
     /**
      * Send exception telemetry to Watchtower.
      */
-    protected function sendTelemetry(array $data): void
+    public function sendTelemetry(array $data): void
     {
         // Non-blocking send with short timeout
         $timeout = (int) config('watchtower.exceptions.timeout', 3);
