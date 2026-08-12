@@ -215,7 +215,6 @@ class CommandTelemetry
         }
 
         $exitCode = $event->exitCode;
-        $exception = $event->exception;
         $finishedAtNs = hrtime(true); // nanoseconds for precise duration
         $finishedAtUnix = time(); // Unix timestamp for schema compatibility
 
