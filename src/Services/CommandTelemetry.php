@@ -24,9 +24,9 @@ class CommandTelemetry
     protected bool $listenersRegistered = false;
 
     /**
-     * Command start times for duration calculation.
+     * Command start times for duration calculation (nanoseconds from hrtime).
      *
-     * @var array<string, array{started_at: int, request_id: ?string}>
+     * @var array<string, array{started_at: int|float, request_id: ?string}>
      */
     protected array $commandStartTimes = [];
 
@@ -147,7 +147,8 @@ class CommandTelemetry
         }
 
         $commandUuid = 'cmd_' . Str::random(16);
-        $startedAt = time();
+        $startedAtNs = hrtime(true); // nanoseconds for precise duration
+        $startedAtUnix = time(); // Unix timestamp for schema compatibility
 
         // Extract sanitized arguments and options from input
         $arguments = $this->extractArguments($event->input);
@@ -156,9 +157,11 @@ class CommandTelemetry
         // Get current request ID if running in HTTP context
         $requestId = $this->getCurrentRequestId();
 
-        // Store start time for duration calculation
+        // Store start time (nanoseconds) for precise duration calculation
+        // Also store Unix timestamp for schema compatibility
         $this->commandStartTimes[$commandUuid] = [
-            'started_at' => $startedAt,
+            'started_at_ns' => $startedAtNs,
+            'started_at_unix' => $startedAtUnix,
             'request_id' => $requestId,
             'command_name' => $commandName,
             'arguments' => $arguments,
@@ -171,7 +174,7 @@ class CommandTelemetry
             status: 'started',
             exitCode: null,
             durationMs: null,
-            startedAt: $startedAt,
+            startedAt: $startedAtUnix,
             finishedAt: null,
             requestId: $requestId,
             exceptionClass: null,
@@ -204,7 +207,8 @@ class CommandTelemetry
         }
 
         $exitCode = $event->exitCode;
-        $finishedAt = time();
+        $finishedAtNs = hrtime(true); // nanoseconds for precise duration
+        $finishedAtUnix = time(); // Unix timestamp for schema compatibility
 
         // Find the matching started command by name
         $commandUuid = null;
@@ -222,8 +226,10 @@ class CommandTelemetry
         // create minimal data
         if ($commandUuid === null) {
             $commandUuid = 'cmd_' . Str::random(16);
+            $finishedAtUnix = time();
             $storedData = [
-                'started_at' => $finishedAt,
+                'started_at_ns' => $finishedAtNs,
+                'started_at_unix' => $finishedAtUnix,
                 'request_id' => $this->getCurrentRequestId(),
                 'command_name' => $commandName,
                 'arguments' => [],
@@ -231,10 +237,10 @@ class CommandTelemetry
             ];
         }
 
-        // Calculate duration
+        // Calculate duration in milliseconds with nanosecond precision
         $durationMs = null;
-        if ($storedData && isset($storedData['started_at'])) {
-            $durationMs = ($finishedAt - $storedData['started_at']) * 1000;
+        if ($storedData && isset($storedData['started_at_ns'])) {
+            $durationMs = (int) (($finishedAtNs - $storedData['started_at_ns']) / 1_000_000);
         }
 
         // Determine status
@@ -252,8 +258,8 @@ class CommandTelemetry
             status: $status,
             exitCode: $exitCode,
             durationMs: $durationMs !== null ? (int) $durationMs : null,
-            startedAt: $storedData['started_at'] ?? null,
-            finishedAt: $finishedAt,
+            startedAt: $storedData['started_at_unix'] ?? $finishedAtUnix,
+            finishedAt: $finishedAtUnix,
             requestId: $storedData['request_id'] ?? null,
             exceptionClass: null,
             exceptionMessage: null,
