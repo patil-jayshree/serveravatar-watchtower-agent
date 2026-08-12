@@ -215,6 +215,7 @@ class CommandTelemetry
         }
 
         $exitCode = $event->exitCode;
+        $exception = $event->exception;
         $finishedAtNs = hrtime(true); // nanoseconds for precise duration
         $finishedAtUnix = time(); // Unix timestamp for schema compatibility
 
@@ -254,10 +255,19 @@ class CommandTelemetry
         // Determine status
         $status = $exitCode === 0 ? 'completed' : 'failed';
 
-        // Check slow threshold
-        $slowThreshold = (int) config('watchtower.command_monitoring.slow_threshold_ms', 1000);
-        if ($slowThreshold > 0 && $durationMs !== null && $durationMs >= $slowThreshold) {
-            // Mark as slow (still completed/failed, but slow flag is in data)
+        // Extract exception information if command failed with an exception
+        $exceptionClass = null;
+        $exceptionMessage = null;
+        $exceptionFile = null;
+        $exceptionLine = null;
+        $stackTrace = null;
+
+        if ($exception instanceof \Throwable) {
+            $exceptionClass = get_class($exception);
+            $exceptionMessage = $exception->getMessage();
+            $exceptionFile = $exception->getFile();
+            $exceptionLine = $exception->getLine();
+            $stackTrace = $exception->getTraceAsString();
         }
 
         $data = new CommandData(
@@ -269,11 +279,11 @@ class CommandTelemetry
             startedAt: $storedData['started_at_unix'] ?? $finishedAtUnix,
             finishedAt: $finishedAtUnix,
             requestId: $storedData['request_id'] ?? null,
-            exceptionClass: null,
-            exceptionMessage: null,
-            exceptionFile: null,
-            exceptionLine: null,
-            stackTrace: null,
+            exceptionClass: $exceptionClass,
+            exceptionMessage: $exceptionMessage,
+            exceptionFile: $exceptionFile,
+            exceptionLine: $exceptionLine,
+            stackTrace: $stackTrace,
             arguments: $storedData['arguments'] ?? [],
             options: $storedData['options'] ?? [],
             environment: config('watchtower.environment', 'production'),
