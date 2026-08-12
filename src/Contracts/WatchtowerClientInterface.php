@@ -75,6 +75,24 @@ interface WatchtowerClientInterface
     public function sendCommandTelemetry(array $data, int $timeout = 3): array;
 
     /**
+     * Send scheduler task information to Watchtower.
+     *
+     * @param array<string, mixed> $data
+     * @param int $timeout
+     * @return array{success: bool}
+     */
+    public function sendSchedulerTaskTelemetry(array $data, int $timeout = 3): array;
+
+    /**
+     * Send scheduler execution telemetry to Watchtower.
+     *
+     * @param array<string, mixed> $data
+     * @param int $timeout
+     * @return array{success: bool}
+     */
+    public function sendSchedulerExecutionTelemetry(array $data, int $timeout = 3): array;
+
+    /**
      * Check if the agent is configured properly.
      */
     public function isConfigured(): bool;

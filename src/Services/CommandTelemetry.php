@@ -47,6 +47,7 @@ class CommandTelemetry
     public function __construct(
         protected CommandSanitizer $sanitizer,
         protected WatchtowerClientInterface $client,
+        protected ?SchedulerMonitor $schedulerMonitor = null,
     ) {}
 
     /**
@@ -150,6 +151,12 @@ class CommandTelemetry
         $startedAtNs = hrtime(true); // nanoseconds for precise duration
         $startedAtUnix = time(); // Unix timestamp for schema compatibility
 
+        // Try to link this command to a scheduler execution if scheduler monitoring is active
+        $schedulerExecutionUuid = null;
+        if ($this->schedulerMonitor !== null) {
+            $schedulerExecutionUuid = $this->schedulerMonitor->getSchedulerExecutionForCommand($commandName, $commandUuid);
+        }
+
         // Extract sanitized arguments and options from input
         $arguments = $this->extractArguments($event->input);
         $options = $this->extractOptions($event->input);
@@ -166,6 +173,7 @@ class CommandTelemetry
             'command_name' => $commandName,
             'arguments' => $arguments,
             'options' => $options,
+            'scheduler_execution_uuid' => $schedulerExecutionUuid,
         ];
 
         $data = new CommandData(

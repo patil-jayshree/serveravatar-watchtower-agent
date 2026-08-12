@@ -21,6 +21,7 @@ use ServerAvatar\Watchtower\Services\QuerySanitizer;
 use ServerAvatar\Watchtower\Services\QueryTelemetry;
 use ServerAvatar\Watchtower\Services\RequestSanitizer;
 use ServerAvatar\Watchtower\Services\RequestTelemetry;
+use ServerAvatar\Watchtower\Services\SchedulerMonitor;
 
 class WatchtowerAgentServiceProvider extends ServiceProvider
 {
@@ -136,6 +137,14 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         $this->app->singleton(CommandTelemetry::class, function ($app) {
             return new CommandTelemetry(
                 $app->make(CommandSanitizer::class),
+                $app->make(WatchtowerClientInterface::class),
+                $app->make(SchedulerMonitor::class)
+            );
+        });
+
+        // Bind SchedulerMonitor
+        $this->app->singleton(SchedulerMonitor::class, function ($app) {
+            return new SchedulerMonitor(
                 $app->make(WatchtowerClientInterface::class)
             );
         });
@@ -172,6 +181,9 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
 
         // Enable command monitoring if configured
         $this->registerCommandMonitoring();
+
+        // Enable scheduler monitoring if configured
+        $this->registerSchedulerMonitoring();
 
         // Publish configuration file
         $this->publishes([
@@ -261,6 +273,20 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         // Resolve CommandTelemetry and enable it
         $commandTelemetry = $this->app->make(\ServerAvatar\Watchtower\Services\CommandTelemetry::class);
         $commandTelemetry->enable();
+    }
+
+    /**
+     * Register scheduler monitoring.
+     */
+    protected function registerSchedulerMonitoring(): void
+    {
+        if (! config('watchtower.enabled', true) || ! config('watchtower.scheduler_monitoring.enabled', false)) {
+            return;
+        }
+
+        // Resolve SchedulerMonitor and enable it
+        $schedulerMonitor = $this->app->make(\ServerAvatar\Watchtower\Services\SchedulerMonitor::class);
+        $schedulerMonitor->enable();
     }
 
     /**

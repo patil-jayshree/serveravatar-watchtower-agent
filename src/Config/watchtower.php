@@ -225,6 +225,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduler Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | Configure Laravel scheduler monitoring behavior.
+    |
+    */
+    'scheduler_monitoring' => [
+        // Enable or disable scheduler monitoring
+        'enabled' => (bool) env('WATCHTOWER_SCHEDULER_MONITORING', false),
+
+        // Grace period in minutes before marking a task as missed
+        // Task won't be marked missed until this period after expected time
+        'grace_period_minutes' => (int) env('WATCHTOWER_SCHEDULER_GRACE_PERIOD', 10),
+
+        // Timeout for scheduler telemetry requests (seconds)
+        'timeout' => (int) env('WATCHTOWER_SCHEDULER_TIMEOUT', 3),
+
+        // Tasks to ignore (Ant-style patterns or exact name)
+        'ignored_tasks' => [
+            // Example: 'schedule:list',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment
     |--------------------------------------------------------------------------
     |

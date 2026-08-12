@@ -295,6 +295,64 @@ class WatchtowerClient implements WatchtowerClientInterface
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function sendSchedulerTaskTelemetry(array $data, int $timeout = 3): array
+    {
+        if (! $this->isConfigured()) {
+            return ['success' => false];
+        }
+
+        try {
+            $payload = array_merge($data, [
+                'token' => $this->token,
+            ]);
+
+            $response = $this->makeRequestWithTimeout('POST', '/api/agent/scheduler/tasks', $payload, $timeout);
+
+            return [
+                'success' => true,
+                'response' => $response,
+            ];
+        } catch (GuzzleException $e) {
+            Log::debug('Watchtower scheduler task telemetry failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function sendSchedulerExecutionTelemetry(array $data, int $timeout = 3): array
+    {
+        if (! $this->isConfigured()) {
+            return ['success' => false];
+        }
+
+        try {
+            $payload = array_merge($data, [
+                'token' => $this->token,
+            ]);
+
+            $response = $this->makeRequestWithTimeout('POST', '/api/agent/scheduler/executions', $payload, $timeout);
+
+            return [
+                'success' => true,
+                'response' => $response,
+            ];
+        } catch (GuzzleException $e) {
+            Log::debug('Watchtower scheduler execution telemetry failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false];
+        }
+    }
+
+    /**
      * Make an HTTP request with retry logic and custom timeout.
      *
      * @throws GuzzleException
