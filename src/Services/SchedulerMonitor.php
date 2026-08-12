@@ -8,6 +8,7 @@ use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Events\ScheduledTaskSkipped;
 use Illuminate\Console\Events\ScheduledTaskMissed;
+use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Support\Str;
 use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
@@ -178,6 +179,13 @@ class SchedulerMonitor
                 return;
             }
             $self->handleScheduledTaskMissed($event);
+        });
+
+        $this->appEvents()->listen(ScheduledTaskFailed::class, function (ScheduledTaskFailed $event) use ($self) {
+            if (! $self->enabled) {
+                return;
+            }
+            $self->handleScheduledTaskFailed($event);
         });
 
         $this->listenersRegistered = true;
@@ -619,6 +627,85 @@ class SchedulerMonitor
             'exception_message' => null,
             'next_run_at' => $this->calculateNextRunTime($task),
         ];
+
+        $this->sendExecutionTelemetry($executionData);
+    }
+
+    /**
+     * Handle ScheduledTaskFailed event.
+     */
+    protected function handleScheduledTaskFailed(ScheduledTaskFailed $event): void
+    {
+        /** @var Event $task */
+        $task = $event->task;
+        $exception = $event->exception;
+        $taskName = $this->getTaskNameFromEvent($task);
+
+        if ($this->shouldIgnore($taskName)) {
+            return;
+        }
+
+        $taskInfo = $this->extractTaskInfoFromEvent($task);
+
+        // Find matching running execution by task name
+        $executionUuid = null;
+        $runningData = null;
+        foreach ($this->runningTasks as $uuid => $data) {
+            if (($data['task_name'] ?? '') === $taskName) {
+                $executionUuid = $uuid;
+                $runningData = $data;
+                unset($this->runningTasks[$uuid]);
+                break;
+            }
+        }
+
+        if ($executionUuid === null) {
+            $executionUuid = 'sched_' . Str::random(16);
+            $runningData = [
+                'expected_at' => $this->calculateExpectedRunTime($task),
+                'started_at_ns' => hrtime(true),
+            ];
+        }
+
+        $durationMs = (int) ((hrtime(true) - $runningData['started_at_ns']) / 1_000_000);
+        $commandUuid = $runningData['command_uuid'] ?? null;
+
+        // Extract exception details
+        $exceptionClass = get_class($exception);
+        $exceptionMessage = $exception->getMessage();
+        $exceptionFile = $exception->getFile();
+        $exceptionLine = $exception->getLine();
+
+        // Get raw stack trace (backend will sanitize)
+        $stackTrace = $exception->getTraceAsString();
+
+        $executionData = [
+            'execution_uuid' => $executionUuid,
+            'task_name' => $taskName,
+            'status' => 'failed',
+            'expected_at' => $runningData['expected_at'],
+            'started_at' => $this->hrtimeToUnix($runningData['started_at_ns']),
+            'finished_at' => $this->hrtimeToUnix(hrtime(true)),
+            'duration_ms' => max(0, $durationMs),
+            'task_type' => $taskInfo['task_type'],
+            'command_name' => $taskInfo['command_name'],
+            'job_name' => $taskInfo['job_name'],
+            'job_uuid' => $taskInfo['job_uuid'],
+            'expression' => $taskInfo['expression'],
+            'description' => $taskInfo['description'],
+            'timezone' => $taskInfo['timezone'],
+            'environment' => $taskInfo['environment'],
+            'exception_class' => $exceptionClass,
+            'exception_message' => $exceptionMessage,
+            'exception_file' => $exceptionFile,
+            'exception_line' => $exceptionLine,
+            'stack_trace' => $stackTrace,
+            'next_run_at' => $this->calculateNextRunTime($task),
+        ];
+
+        if ($commandUuid) {
+            $executionData['command_uuid'] = $commandUuid;
+        }
 
         $this->sendExecutionTelemetry($executionData);
     }
