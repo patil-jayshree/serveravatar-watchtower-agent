@@ -30,6 +30,11 @@ class WatchtowerExceptionHandler
         // Set the request ID in the telemetry service for correlation
         $this->exceptionTelemetry->setCurrentRequestId($requestId);
 
+        logger()->debug('WatchtowerExceptionHandler: middleware called', [
+            'path' => $request->path(),
+            'method' => $request->method(),
+        ]);
+
         try {
             $response = $next($request);
 
@@ -40,6 +45,11 @@ class WatchtowerExceptionHandler
 
             return $response;
         } catch (Throwable $e) {
+            logger()->debug('WatchtowerExceptionHandler: exception caught', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+
             // Capture the exception
             $this->captureException($e, $request);
 
