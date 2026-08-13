@@ -6,7 +6,10 @@ namespace ServerAvatar\Watchtower;
 
 use Illuminate\Support\ServiceProvider;
 use ServerAvatar\Watchtower\Client\WatchtowerClient;
+use ServerAvatar\Watchtower\Commands\WatchtowerInstallCommand;
+use ServerAvatar\Watchtower\Commands\WatchtowerStatusCommand;
 use ServerAvatar\Watchtower\Contracts\WatchtowerClientInterface;
+use ServerAvatar\Watchtower\Installer\WatchtowerInstaller;
 use ServerAvatar\Watchtower\Middleware\WatchtowerExceptionHandler;
 use ServerAvatar\Watchtower\Middleware\WatchtowerRequestTelemetry;
 use ServerAvatar\Watchtower\Services\CommandSanitizer;
@@ -149,6 +152,11 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
                 $app->make(WatchtowerClientInterface::class)
             );
         });
+
+        // Bind WatchtowerInstaller
+        $this->app->singleton(WatchtowerInstaller::class, function () {
+            return new WatchtowerInstaller();
+        });
     }
 
     /**
@@ -159,7 +167,8 @@ class WatchtowerAgentServiceProvider extends ServiceProvider
         // Register the Artisan command
         if ($this->app->runningInConsole()) {
             $this->commands([
-                \ServerAvatar\Watchtower\Commands\WatchtowerStatusCommand::class,
+                WatchtowerStatusCommand::class,
+                WatchtowerInstallCommand::class,
             ]);
         }
 
