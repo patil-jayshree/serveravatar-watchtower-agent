@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ServerAvatar\Watchtower\Data;
 
+use ServerAvatar\Watchtower\Services\ExceptionSanitizer;
 use Throwable;
 
 class ExceptionData
@@ -13,7 +14,11 @@ class ExceptionData
         public readonly string $message,
         public readonly string $file,
         public readonly int $line,
-        public readonly string $stackTrace,
+        public readonly string|array $stackTrace,
+        public readonly ?string $class = null,
+        public readonly ?string $function = null,
+        public readonly ?string $sourceFile = null,
+        public readonly ?string $sourceContext = null,
         public readonly ?string $requestId = null,
         public readonly ?int $statusCode = null,
         public readonly ?string $method = null,
@@ -41,12 +46,33 @@ class ExceptionData
         ?string $routeName = null,
         ?string $controllerAction = null
     ): self {
+        $sanitizer = new ExceptionSanitizer();
+
+        // Parse the stack trace into structured format
+        $parsedTrace = $sanitizer->parseTrace($exception);
+
+        // Sanitize the trace
+        $sanitizedTrace = $sanitizer->sanitizeTrace($parsedTrace);
+
+        // Extract exception context (class + function where exception was thrown)
+        $context = $sanitizer->extractExceptionContext($exception);
+
+        // Extract source code context around the exception line
+        $sourceContext = $sanitizer->extractSourceContext(
+            $exception->getFile(),
+            $exception->getLine()
+        );
+
         return new self(
             exceptionType: get_class($exception),
             message: $exception->getMessage(),
             file: $exception->getFile(),
             line: $exception->getLine(),
-            stackTrace: $exception->getTraceAsString(),
+            stackTrace: $sanitizedTrace, // Structured array
+            class: $context['class'],
+            function: $context['function'],
+            sourceFile: $sourceContext['file'] ?? null,
+            sourceContext: $sourceContext['context'] ?? null,
             requestId: $requestId,
             statusCode: $statusCode,
             method: $method,
@@ -71,7 +97,11 @@ class ExceptionData
             'message' => $this->message,
             'file' => $this->file,
             'line' => $this->line,
-            'stack_trace' => $this->stackTrace,
+            'stack_trace' => is_array($this->stackTrace) ? json_encode($this->stackTrace) : $this->stackTrace,
+            'class' => $this->class,
+            'function' => $this->function,
+            'source_file' => $this->sourceFile,
+            'source_context' => $this->sourceContext,
             'request_id' => $this->requestId,
             'status_code' => $this->statusCode,
             'method' => $this->method,

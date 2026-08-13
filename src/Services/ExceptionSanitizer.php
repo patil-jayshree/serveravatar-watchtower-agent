@@ -4,176 +4,347 @@ declare(strict_types=1);
 
 namespace ServerAvatar\Watchtower\Services;
 
+use Throwable;
+
 class ExceptionSanitizer
 {
     /**
-     * Patterns that indicate sensitive information.
+     * Patterns for sensitive data that should be redacted from stack traces.
      */
     protected array $sensitivePatterns = [
-        // Passwords
-        '#password["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[PASSWORD REDACTED]',
-        '#"password"\s*:\s*"[^"]{1,100}"#i' => '"password": "[PASSWORD]"',
-
-        // Secrets
-        '#secret["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[SECRET REDACTED]',
-
-        // API keys
-        '#api[_-]?key["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[API_KEY REDACTED]',
-        '#api[_-]?secret["\']?\s*[:=]\s*["\'][^"\']{1,100}["\']#i' => '[API_SECRET REDACTED]',
-
-        // Authorization headers
-        '#authorization["\']?\s*[:=]\s*["\'][^"\']{1,200}["\']#i' => '[AUTHORIZATION REDACTED]',
-        '#bearer\s+[a-zA-Z0-9\-_.~+/]{10,}#i' => 'Bearer [TOKEN REDACTED]',
-
-        // Database credentials in DSN strings
-        '#mysql://[^:]+:[^@]+@#i' => 'mysql://[USER]:[PASS]@',
-
-        // AWS keys
-        '#AKIA[0-9A-Z]{16}#' => '[AWS_ACCESS_KEY_ID]',
-        '#[a-zA-Z0-9/+=]{40}(?=.*aws)#i' => '[AWS_SECRET_KEY]',
-
-        // Environment variables with sensitive names
-        '#ENV\[\["\'](?:DB_PASSWORD|DB_USERNAME|APP_KEY|SECRET|TOKEN|PASSWORD|API_KEY)["\'\s]#i' => 'ENV[[SECRET]',
-
-        // Cookie values
-        '#cookie["\']?\s*[:=]\s*["\'][^"\']{1,200}["\']#i' => '[COOKIE REDACTED]',
-
-        // Token in URL query
-        '#[?&](?:token|api_key|key)=[a-zA-Z0-9\-_.~+/]{10,}#i' => '[QUERY_TOKEN REDACTED]',
+        // Key-value patterns (quoted values)
+        '/(["\']?(?:password|secret|token|api[_-]?key|auth|authorization|bearer|credential|credit[_-]?card|cvv|ssn)["\']?\s*[:=]\s*)["\'][^"\']{1,100}["\']/i',
+        // Bearer tokens
+        '/(bearer\s+)[a-zA-Z0-9\-_.~+\/=]{10,}/i',
+        // Basic auth
+        '/(basic\s+)[a-zA-Z0-9+\/=]{10,}/i',
+        // URLs with credentials
+        '/(https?:\/\/)[^:\/]+:[^@\/\n]+@[^\/\n]+/i',
+        // Environment variable access patterns that might expose secrets
+        '/(env\(["\'][^"\']{1,50}["\']\))/i',
     ];
 
     /**
-     * Sensitive route patterns that might appear in stack traces.
+     * Keys that indicate sensitive function arguments.
      */
-    protected array $sensitiveRoutePatterns = [
-        '#/api/.*/token#i',
-        '#/auth/.*/callback#i',
-        '#/oauth/#i',
-        '#/webhook/#i',
+    protected array $sensitiveArgNames = [
+        'password',
+        'secret',
+        'token',
+        'api_key',
+        'apikey',
+        'authorization',
+        'bearer',
+        'credential',
+        'access_token',
+        'refresh_token',
+        'client_secret',
+        'private_key',
     ];
 
     /**
-     * Sanitize exception data to remove sensitive information.
+     * Sanitize a stack trace array.
+     *
+     * @param  array<int, array{file?: string, line?: int, class?: string, type?: string, function?: string, args?: array}>  $trace
+     * @return array<int, array{file?: string, line?: int, class?: string, type?: string, function?: string, args?: array}>
      */
-    public function sanitize(array $data): array
+    public function sanitizeTrace(array $trace): array
     {
-        // Always sanitize message first
-        if (isset($data['message'])) {
-            $data['message'] = $this->sanitizeText($data['message']);
-        }
+        return array_map(function (array $frame) {
+            // Sanitize file path (remove absolute paths, keep relative)
+            if (isset($frame['file'])) {
+                $frame['file'] = $this->sanitizeFilePath($frame['file']);
+            }
 
-        // Sanitize stack trace
-        if (isset($data['stack_trace'])) {
-            $data['stack_trace'] = $this->sanitizeStackTrace($data['stack_trace']);
-        }
+            // Sanitize arguments
+            if (isset($frame['args']) && is_array($frame['args'])) {
+                $frame['args'] = $this->sanitizeArgs($frame['args']);
+            }
 
-        // Sanitize file path (remove absolute system paths)
-        if (isset($data['file'])) {
-            $data['file'] = $this->sanitizeFilePath($data['file']);
-        }
-
-        // Remove authorization-related headers
-        if (isset($data['headers']) && is_array($data['headers'])) {
-            $data['headers'] = $this->sanitizeHeaders($data['headers']);
-        }
-
-        return $data;
+            return $frame;
+        }, $trace);
     }
 
     /**
-     * Sanitize a text string.
+     * Sanitize a single line of stack trace text.
      */
-    public function sanitizeText(string $text): string
+    public function sanitizeStackTraceText(string $trace): string
     {
-        foreach ($this->sensitivePatterns as $pattern => $replacement) {
-            $text = preg_replace($pattern, $replacement, $text);
+        $sanitized = $trace;
+
+        foreach ($this->sensitivePatterns as $pattern) {
+            $sanitized = preg_replace($pattern, '$1[REDACTED]', $sanitized);
         }
-
-        return $text;
-    }
-
-    /**
-     * Sanitize a stack trace.
-     */
-    public function sanitizeStackTrace(string $stackTrace): string
-    {
-        // First, apply general text sanitization
-        $sanitized = $this->sanitizeText($stackTrace);
-
-        // Then sanitize file paths in the trace
-        $sanitized = preg_replace_callback(
-            '#\d+\s+[a-zA-Z\\_]+::[a-zA-Z\\_]+\([^\)]+\)\s+at\s+(.+):(\d+)#i',
-            function ($matches) {
-                return '#X ' . $matches[1] . '(' . $this->sanitizeFilePath($matches[2]) . ':' . $matches[3] . ')';
-            },
-            $sanitized
-        );
 
         return $sanitized;
     }
 
     /**
-     * Sanitize a file path to avoid leaking system information.
+     * Parse a stack trace from an exception into a structured array.
+     *
+     * @return array<int, array{file: string, line: int, class: string, type: string, function: string}>
      */
-    public function sanitizeFilePath(string $path): string
+    public function parseTrace(Throwable $exception): array
     {
-        // Remove base path to show only relative path from project root
-        $basePath = base_path();
-        if (str_starts_with($path, $basePath)) {
-            return 'app/' . ltrim(substr($path, strlen($basePath)), '/');
+        $trace = $exception->getTrace();
+
+        // Filter out vendor frames (laravel, php internal)
+        $trace = array_filter($trace, function (array $frame) {
+            // Skip frames from vendor directories
+            if (isset($frame['file']) && $this->isVendorPath($frame['file'])) {
+                return false;
+            }
+            return true;
+        });
+
+        // Add the exception location as the first frame
+        array_unshift($trace, [
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'class' => get_class($exception),
+            'type' => '→',
+            'function' => '__construct',
+        ]);
+
+        return array_values($trace);
+    }
+
+    /**
+     * Extract the class and function from the exception's immediate context.
+     *
+     * @return array{class: string, function: string}
+     */
+    public function extractExceptionContext(Throwable $exception): array
+    {
+        $trace = $exception->getTrace();
+
+        // Look for the first frame that's not the exception itself
+        foreach ($trace as $frame) {
+            if (! isset($frame['file']) || $frame['file'] !== $exception->getFile()) {
+                return [
+                    'class' => $frame['class'] ?? '',
+                    'function' => $frame['function'] ?? '',
+                ];
+            }
         }
 
-        // For vendor paths, just show package name
-        if (str_contains($path, 'vendor/')) {
-            $parts = explode('vendor/', $path);
-            if (count($parts) === 2) {
-                return 'vendor/' . $parts[1];
-            }
+        // If all frames are from the same file, extract from the trace
+        if (! empty($trace)) {
+            $frame = $trace[0];
+            return [
+                'class' => $frame['class'] ?? '',
+                'function' => $frame['function'] ?? '',
+            ];
+        }
+
+        return [
+            'class' => get_class($exception),
+            'function' => '__throw',
+        ];
+    }
+
+    /**
+     * Check if a file path is from a vendor directory.
+     */
+    protected function isVendorPath(string $path): bool
+    {
+        return str_contains($path, 'vendor/')
+            || str_contains($path, 'vendor\\')
+            || str_contains($path, '/vendor/')
+            || str_contains($path, '\\vendor\\');
+    }
+
+    /**
+     * Sanitize a file path to show relative path from project root.
+     */
+    protected function sanitizeFilePath(string $path): string
+    {
+        // Try to extract relative path after 'app/' or 'src/'
+        if (preg_match('/(?:app|src)\/(.+)$/', $path, $matches)) {
+            return 'app/' . $matches[1];
+        }
+
+        // For other paths, extract last 3 segments
+        $parts = explode('/', str_replace('\\', '/', $path));
+        if (count($parts) > 3) {
+            return implode('/', array_slice($parts, -3));
         }
 
         return $path;
     }
 
     /**
-     * Sanitize HTTP headers.
+     * Sanitize function arguments.
+     *
+     * @param  array<int, mixed>  $args
+     * @return array<int, mixed>
      */
-    public function sanitizeHeaders(array $headers): array
+    protected function sanitizeArgs(array $args): array
     {
-        $sensitiveHeaders = [
-            'authorization',
-            'cookie',
-            'x-csrf-token',
-            'x-xsrf-token',
-        ];
-
-        foreach ($headers as $key => $value) {
-            if (in_array(strtolower($key), $sensitiveHeaders)) {
-                $headers[$key] = '[REDACTED]';
+        return array_map(function ($arg) {
+            if (is_array($arg)) {
+                return '[Array]';
             }
-        }
 
-        return $headers;
+            if (is_object($arg)) {
+                return get_class($arg) . '::class';
+            }
+
+            if (is_string($arg)) {
+                // Check if it looks like sensitive data
+                if ($this->looksLikeSensitiveData($arg)) {
+                    return '[REDACTED]';
+                }
+                // Truncate long strings
+                if (strlen($arg) > 100) {
+                    return substr($arg, 0, 100) . '...';
+                }
+                return $arg;
+            }
+
+            if (is_bool($arg)) {
+                return $arg ? 'true' : 'false';
+            }
+
+            if (is_null($arg)) {
+                return 'null';
+            }
+
+            return var_export($arg, true);
+        }, $args);
     }
 
     /**
-     * Check if a string contains potential secrets.
+     * Check if a string value looks like sensitive data.
      */
-    public function containsSecrets(string $text): bool
+    protected function looksLikeSensitiveData(string $value): bool
     {
-        foreach (array_keys($this->sensitivePatterns) as $pattern) {
-            if (preg_match($pattern, $text)) {
-                return true;
-            }
+        // Check for token-like patterns
+        if (preg_match('/^(?:bearer|basic|token|eyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+)$/i', trim($value))) {
+            return true;
+        }
+
+        // Check for long random strings (likely API keys, tokens)
+        if (strlen($value) > 32 && preg_match('/^[a-zA-Z0-9\-_=\/]+$/', $value)) {
+            return true;
         }
 
         return false;
     }
 
     /**
-     * Add a custom sensitive pattern.
+     * Sanitize an exception data array for API submission.
+     * This is the main entry point used by ExceptionTelemetry.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
      */
-    public function addPattern(string $pattern, string $replacement): void
+    public function sanitize(array $data): array
     {
-        $this->sensitivePatterns[$pattern] = $replacement;
+        // Sanitize stack_trace if it's a string
+        if (isset($data['stack_trace']) && is_string($data['stack_trace'])) {
+            $data['stack_trace'] = $this->sanitizeStackTraceText($data['stack_trace']);
+        }
+
+        // Sanitize message
+        if (isset($data['message'])) {
+            $data['message'] = $this->sanitizeStackTraceText($data['message']);
+        }
+
+        // Sanitize file path
+        if (isset($data['file'])) {
+            $data['file'] = $this->sanitizeFilePath($data['file']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Extract a context window of source code around the exception line.
+     * Returns a JSON-encoded array of {line_number, line_content, is_failing_line}.
+     *
+     * @return array{file: string|null, context: string|null}
+     */
+    public function extractSourceContext(string $file, int $line, int $window = 7): array
+    {
+        $result = [
+            'file' => null,
+            'context' => null,
+        ];
+
+        // Validate file exists and is readable
+        if (empty($file) || ! file_exists($file) || ! is_readable($file)) {
+            return $result;
+        }
+
+        // Sanitize the file path for display (relative path)
+        $result['file'] = $this->sanitizeFilePath($file);
+
+        // Read file content (only what we need)
+        $fileHandle = fopen($file, 'r');
+        if ($fileHandle === false) {
+            return $result;
+        }
+
+        // Calculate line range: $window lines before, $window lines after
+        $startLine = max(1, $line - $window);
+        $endLine = $line + $window;
+
+        $contextLines = [];
+        $currentLine = 1;
+
+        while (($buffer = fgets($fileHandle)) !== false) {
+            if ($currentLine >= $startLine && $currentLine <= $endLine) {
+                $contextLines[] = [
+                    'line' => $currentLine,
+                    'content' => $this->sanitizeSourceLine($buffer),
+                    'is_failing' => ($currentLine === $line),
+                ];
+            }
+
+            if ($currentLine > $endLine) {
+                break;
+            }
+
+            $currentLine++;
+        }
+
+        fclose($fileHandle);
+
+        if (! empty($contextLines)) {
+            $result['context'] = json_encode($contextLines);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Sanitize a single source code line.
+     */
+    protected function sanitizeSourceLine(string $line): string
+    {
+        // Remove trailing newline/whitespace
+        $line = rtrim($line, "\r\n");
+
+        // Truncate very long lines (e.g., minified JS, long strings)
+        if (strlen($line) > 500) {
+            $line = substr($line, 0, 500) . '...';
+        }
+
+        // Redact patterns that look like credentials, tokens, keys
+        $line = preg_replace(
+            '/(["\']?(?:password|secret|token|api[_-]?key|auth|authorization|bearer|credential)["\']?\s*[:=]\s*)[\"\'][^\"\']{1,100}[\"\']/i',
+            '$1[REDACTED]',
+            $line
+        ) ?? $line;
+
+        // Redact long base64-like strings that might be secrets
+        $line = preg_replace(
+            '/[a-zA-Z0-9\-_]{50,}(?==|$)/',
+            '[REDACTED]',
+            $line
+        ) ?? $line;
+
+        return $line;
     }
 }

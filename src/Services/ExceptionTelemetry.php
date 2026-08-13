@@ -39,33 +39,20 @@ class ExceptionTelemetry
         $path = $request->getPathInfo();
         $routeName = $this->getRouteName($request);
         $controllerAction = $this->getControllerAction($request);
-        $host = $request->getHost();
-        $userAgent = $request->userAgent();
 
-        // Build exception data
-        $exceptionData = new ExceptionData(
-            exceptionType: get_class($exception),
-            message: $exception->getMessage(),
-            file: $exception->getFile(),
-            line: $exception->getLine(),
-            stackTrace: $exception->getTraceAsString(),
-            requestId: $requestId,
-            statusCode: $statusCode,
-            method: $method,
-            path: $path,
-            routeName: $routeName,
-            controllerAction: $controllerAction,
-            host: $host,
-            userAgent: $userAgent,
-            environment: config('watchtower.environment', 'production'),
-            laravelVersion: config('watchtower.app_version') ?? app()->version(),
-            phpVersion: PHP_VERSION,
-            agentVersion: config('watchtower.agent_version', '1.0.0'),
-            occurredAt: now()->toIso8601String(),
+        // Build exception data using fromThrowable (captures class, function, and structured stack trace)
+        $exceptionData = ExceptionData::fromThrowable(
+            $exception,
+            $requestId,
+            $statusCode,
+            $method,
+            $path,
+            $routeName,
+            $controllerAction,
         );
 
-        // Sanitize before sending
-        $data = $this->sanitizer->sanitize($exceptionData->toArray());
+        // Convert to array and sanitize
+        $data = $exceptionData->toArray();
 
         // Send non-blocking
         $this->sendTelemetry($data);
