@@ -1,20 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ServerAvatar\Watchtower\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use ServerAvatar\Watchtower\Services\RequestTelemetry;
-use Symfony\Component\HttpFoundation\Response;
 
 class WatchtowerRequestTelemetry
 {
-    /**
-     * Optional callback to be notified when request ID is set.
-     *
-     * @var callable|null
-     */
     protected $requestIdCallback = null;
 
     public function __construct(
@@ -23,10 +18,8 @@ class WatchtowerRequestTelemetry
 
     /**
      * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         // Skip telemetry if disabled
         if (! config('watchtower.enabled', true) || ! config('watchtower.request_telemetry.enabled', true)) {
